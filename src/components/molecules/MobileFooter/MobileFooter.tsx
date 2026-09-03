@@ -19,6 +19,7 @@ import { AvatarWithFallback } from '@/organisms/AvatarWithFallback/AvatarWithFal
 import { useAuthStore } from '@/stores/auth/auth.store';
 import { useLocalFilesStore } from '@/stores/localFiles/localFiles.store';
 import { useNotificationStore } from '@/stores/notification/notification.store';
+import { SyncStatusIndicator } from '../SyncStatusIndicator/SyncStatusIndicator';
 
 export interface MobileFooterProps {
   className?: string;
@@ -164,6 +165,7 @@ export function MobileFooter({ className }: MobileFooterProps) {
               className="cursor-pointer"
               alt={'Profile'}
             />
+            <SyncStatusIndicator variant="dot" className="absolute -top-0.5 -right-0.5" />
             {unreadNotifications > 0 && (
               <Badge
                 data-testid="mobile-notification-counter"

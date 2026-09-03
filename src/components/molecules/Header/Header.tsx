@@ -20,6 +20,7 @@ import { AvatarWithFallback } from '@/organisms/AvatarWithFallback/AvatarWithFal
 import { SearchInput } from '@/organisms/SearchInput/SearchInput';
 import { useAuthStore } from '@/stores/auth/auth.store';
 import { ProgressSteps } from '../ProgressSteps/ProgressSteps';
+import { SyncStatusIndicator } from '../SyncStatusIndicator/SyncStatusIndicator';
 
 export interface HeaderContainerProps {
   children: React.ReactNode;
@@ -210,6 +211,7 @@ export function HeaderNavigationButtons({
   const counterString = counter > 21 ? '21+' : counter.toString();
   return (
     <Container className={cn('hidden w-auto flex-row items-center justify-start gap-3 lg:flex', className)}>
+      <SyncStatusIndicator />
       {NAVIGATION_ITEMS.map((item) => {
         const isCollectionsItem = item.href === APP_ROUTES.COLLECTIONS;
         return (

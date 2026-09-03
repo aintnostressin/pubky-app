@@ -25,6 +25,7 @@ import { Err } from '@/libs/error/error.factories';
 import { httpResponseToError } from '@/libs/error/error.http';
 import { ErrorCategory, ErrorService } from '@/libs/error/error.types';
 import { hasHttpStatus } from '@/libs/error/error.utils';
+import { notifyHomeserverWrite } from '@/libs/homeserver-write/homeserver-write';
 import { HttpMethod, HttpStatusCode } from '@/libs/http/http.types';
 import { Identity } from '@/libs/identity/identity';
 import { Logger } from '@/libs/logger/logger';
@@ -392,6 +393,7 @@ export class HomeserverService {
    * Performs a request against the homeserver.
    *
    * Sends a JSON payload when provided and throws if the response is not OK.
+   * Successful writes (PUT/DELETE) emit `notifyHomeserverWrite()`.
    * Note: Under the hood this uses `fetch` with `credentials: 'include'`.
    *
    * @param {HttpMethod} method - HTTP method to use (e.g. PUT, POST, DELETE).
@@ -414,11 +416,13 @@ export class HomeserverService {
           await session.storage
             .putJson(path, bodyJson ?? {})
             .catch((error) => handleError({ error, additionalContext: { url, method } }));
+          notifyHomeserverWrite();
           return undefined as T;
         case HttpMethod.DELETE:
           await session.storage
             .delete(path)
             .catch((error) => handleError({ error, additionalContext: { url, method } }));
+          notifyHomeserverWrite();
           return undefined as T;
       }
     }
@@ -449,7 +453,12 @@ export class HomeserverService {
 
     await assertOk({ response, url, operation: 'request' });
 
-    return method === HttpMethod.GET ? ((await parseResponseOrUndefined<T>({ response })) as T) : (undefined as T);
+    if (method === HttpMethod.GET) {
+      return (await parseResponseOrUndefined<T>({ response })) as T;
+    }
+
+    notifyHomeserverWrite();
+    return undefined as T;
   }
 
   /**
@@ -466,6 +475,7 @@ export class HomeserverService {
     if (owned) {
       try {
         await owned.session.storage.putBytes(owned.path, blob);
+        notifyHomeserverWrite();
         return;
       } catch (error) {
         return handleError({ error, additionalContext: { url, method: HttpMethod.PUT } });
@@ -486,6 +496,7 @@ export class HomeserverService {
 
     const response = await this.fetch({ url, options: { method: HttpMethod.PUT, body: blob } });
     await assertOk({ response, url, operation: 'putBlob' });
+    notifyHomeserverWrite();
   }
 
   /**
@@ -723,6 +734,54 @@ export class HomeserverService {
         error,
         additionalContext: { pathPrefix: params.pathPrefix },
       });
+    }
+  }
+
+  /**
+   * Fetches the cursor of the user's latest public event from the homeserver
+   * `/events-stream` (SDK one-shot wrapper, no live tail).
+   *
+   * Returns `0` when the user has no public events yet.
+   */
+  static async fetchUserEventsCursor(params: { userZ32: TPubkyModel }): Promise<number> {
+    try {
+      const pubkySdk = this.getPubkySdk();
+      const pk = PublicKey.from(params.userZ32);
+      const stream = (await pubkySdk
+        .eventStreamForUser(pk, null)
+        .path(PUB_PATH_PREFIX)
+        .reverse()
+        .limit(1)
+        .subscribe()) as ReadableStream<HomeserverSdkUserEvent>;
+
+      return await this.readLatestUserEventCursor(stream);
+    } catch (error) {
+      return handleError({
+        error,
+        additionalContext: { userZ32: params.userZ32 },
+      });
+    }
+  }
+
+  private static async readLatestUserEventCursor(stream: ReadableStream<HomeserverSdkUserEvent>): Promise<number> {
+    const reader = stream.getReader();
+    try {
+      const { done, value } = await reader.read();
+      if (done || !value) {
+        return 0;
+      }
+      try {
+        const cursor = Number.parseInt(value.cursor, 10);
+        return Number.isFinite(cursor) ? cursor : 0;
+      } finally {
+        try {
+          value.free();
+        } catch {
+          // Ignore WASM dispose errors.
+        }
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
     }
   }
 

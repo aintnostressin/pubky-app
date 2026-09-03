@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNexusUrl } from '@/config/nexus';
 import type { Pubky } from '@/models/models.types';
-import type { NexusTag, NexusUserDetails, TUserId } from '@/services/nexus/nexus.types';
-import { queryNexus } from '@/services/nexus/nexus.utils';
+import type { NexusTag, NexusUserCursor, NexusUserDetails, TUserId } from '@/services/nexus/nexus.types';
+import { fetchNexus, queryNexus } from '@/services/nexus/nexus.utils';
 import { NexusUserService } from '@/services/nexus/user/user';
 import { buildUrlWithQuery } from '../nexus.utils';
 import { userApi } from './user.api';
@@ -19,11 +19,13 @@ vi.mock('@/services/nexus/nexus.utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/nexus/nexus.utils')>();
   return {
     ...actual,
+    fetchNexus: vi.fn(),
     queryNexus: vi.fn(),
   };
 });
 
 const mockQueryNexus = vi.mocked(queryNexus);
+const mockFetchNexus = vi.mocked(fetchNexus);
 
 const testUserId = 'qr3xqyz3e5cyf9npgxc5zfp15ehhcis6gqsxob4une7bwwazekry';
 const testViewerId = 'viewer123';
@@ -60,6 +62,7 @@ describe('User API', () => {
       const params: TUserId = { user_id: testUserId };
 
       expect(userApi.counts(params)).toBe(`${getNexusUrl()}/v0/user/${testUserId}/counts`);
+      expect(userApi.cursor(params)).toBe(`${getNexusUrl()}/v0/user/${testUserId}/cursor`);
       expect(userApi.details(params)).toBe(`${getNexusUrl()}/v0/user/${testUserId}/details`);
     });
 
@@ -137,11 +140,12 @@ describe('User API', () => {
   });
 
   describe('UserApiEndpoint type', () => {
-    it('should have exactly 10 endpoints', () => {
+    it('should have exactly 11 endpoints', () => {
       const endpointKeys = Object.keys(userApi);
-      expect(endpointKeys).toHaveLength(10);
+      expect(endpointKeys).toHaveLength(11);
       expect(endpointKeys).toContain('view');
       expect(endpointKeys).toContain('counts');
+      expect(endpointKeys).toContain('cursor');
       expect(endpointKeys).toContain('details');
       expect(endpointKeys).toContain('followers');
       expect(endpointKeys).toContain('following');
@@ -241,6 +245,31 @@ describe('NexusUserService', () => {
       expect(result).toEqual(mockUserDetails);
       expect(result.name).toBe('Satoshi Nakamoto');
       expect(result.links).toHaveLength(2);
+    });
+  });
+
+  describe('cursor', () => {
+    it('should construct correct URL and handle successful response', async () => {
+      const mockCursor: NexusUserCursor = {
+        user_id: testUserId,
+        homeserver_id: 'homeserver-1',
+        cursor: 42,
+      };
+
+      const fetchNexusSpy = mockFetchNexus.mockResolvedValue(mockCursor);
+
+      const result = await NexusUserService.cursor({ user_id: testUserId });
+
+      expect(result).toEqual(mockCursor);
+      expect(fetchNexusSpy).toHaveBeenCalledWith({ url: `${getNexusUrl()}/v0/user/${testUserId}/cursor` });
+    });
+
+    it('should use the raw fetchNexus instead of the cached queryNexus', async () => {
+      mockFetchNexus.mockResolvedValue({ user_id: testUserId, homeserver_id: 'homeserver-1', cursor: 7 });
+
+      await NexusUserService.cursor({ user_id: testUserId });
+
+      expect(mockQueryNexus).not.toHaveBeenCalled();
     });
   });
 });

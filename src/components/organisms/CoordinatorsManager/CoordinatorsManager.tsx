@@ -5,12 +5,14 @@ import { usePathname } from 'next/navigation';
 import { MuteListSyncCoordinator } from '@/coordinators/mute-list-sync/mute-list-sync';
 import { NotificationCoordinator } from '@/coordinators/notifications/notifications';
 import { StreamCoordinator } from '@/coordinators/streams/stream';
+import { SyncStatusCoordinator } from '@/coordinators/sync-status/sync-status';
 import { TtlCoordinator } from '@/coordinators/ttl/ttl';
 
 function getAppCoordinators() {
   return {
     notification: NotificationCoordinator.getInstance(),
     stream: StreamCoordinator.getInstance(),
+    syncStatus: SyncStatusCoordinator.getInstance(),
     ttl: TtlCoordinator.getInstance(),
     muteListSync: MuteListSyncCoordinator.getInstance(),
   };
@@ -20,6 +22,7 @@ function applyRouteToCoordinators(pathname: string): void {
   const coordinators = getAppCoordinators();
   void coordinators.notification.setRoute(pathname);
   void coordinators.stream.setRoute(pathname);
+  void coordinators.syncStatus.setRoute(pathname);
   coordinators.ttl.setRoute(pathname);
   coordinators.muteListSync.setRoute(pathname);
 }
@@ -28,6 +31,7 @@ function startAppCoordinators(): void {
   const coordinators = getAppCoordinators();
   void coordinators.notification.start();
   void coordinators.stream.start();
+  void coordinators.syncStatus.start();
   coordinators.ttl.start();
   coordinators.muteListSync.start();
 }
@@ -36,6 +40,7 @@ function stopAppCoordinators(): void {
   const coordinators = getAppCoordinators();
   coordinators.notification.stop();
   coordinators.stream.stop();
+  coordinators.syncStatus.stop();
   coordinators.ttl.stop();
   coordinators.muteListSync.stop();
 }
@@ -48,7 +53,7 @@ function stopAppCoordinators(): void {
  *
  * Responsibilities:
  * - Initialize coordinators on mount (NotificationCoordinator, StreamCoordinator,
- *   MuteListSyncCoordinator, TtlCoordinator)
+ *   SyncStatusCoordinator, MuteListSyncCoordinator, TtlCoordinator)
  * - Start coordination when the component is mounted
  * - Track route changes and inform coordinators
  * - Stop coordination and cleanup when unmounted

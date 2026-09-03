@@ -143,6 +143,14 @@ export type NexusUserCounts = {
   bookmarks: number;
 };
 
+/** The user's homeserver event cursor as tracked by Nexus */
+export type NexusUserCursor = {
+  user_id: Pubky;
+  homeserver_id: string;
+  /** ID of the last homeserver event processed by Nexus for this user (0 when none) */
+  cursor: number;
+};
+
 /** Relationship status between the viewer and a user */
 export type NexusUserRelationship = {
   following: boolean;

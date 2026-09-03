@@ -1,5 +1,5 @@
 import type { Keypair, PublicKey, Session } from '@synonymdev/pubky';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { AppError } from '@/libs/error/error';
 import { AuthErrorCode, ClientErrorCode, ServerErrorCode, ValidationErrorCode } from '@/libs/error/error.codes';
 import { ErrorCategory, ErrorService } from '@/libs/error/error.types';
@@ -1429,6 +1429,144 @@ describe('HomeserverService', () => {
         expect(result.value).toEqual({ cursor: 'cursor-1', eventType: 'PUT' });
         expect(result.value).not.toHaveProperty('free');
         expect(free).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('fetchUserEventsCursor', () => {
+      it('returns the latest public event cursor and disposes the raw WASM event', async () => {
+        const free = vi.fn();
+        const path = vi.fn().mockReturnThis();
+        const reverse = vi.fn().mockReturnThis();
+        const limit = vi.fn().mockReturnThis();
+        const subscribe = vi.fn().mockResolvedValue(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue({ cursor: '42', eventType: 'PUT', free });
+              controller.close();
+            },
+          }),
+        );
+
+        mockState.eventStreamForUser.mockReturnValue({ path, reverse, limit, subscribe });
+
+        const cursor = await HomeserverService.fetchUserEventsCursor({ userZ32: 'user-pubky' });
+
+        expect(cursor).toBe(42);
+        expect(path).toHaveBeenCalledWith('/pub/');
+        expect(reverse).toHaveBeenCalled();
+        expect(limit).toHaveBeenCalledWith(1);
+        expect(free).toHaveBeenCalledTimes(1);
+      });
+
+      it('returns 0 when the user has no public events', async () => {
+        const path = vi.fn().mockReturnThis();
+        const reverse = vi.fn().mockReturnThis();
+        const limit = vi.fn().mockReturnThis();
+        const subscribe = vi.fn().mockResolvedValue(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+        );
+
+        mockState.eventStreamForUser.mockReturnValue({ path, reverse, limit, subscribe });
+
+        const cursor = await HomeserverService.fetchUserEventsCursor({ userZ32: 'user-pubky' });
+
+        expect(cursor).toBe(0);
+      });
+
+      it('returns 0 when the event cursor is not numeric', async () => {
+        const free = vi.fn();
+        const path = vi.fn().mockReturnThis();
+        const reverse = vi.fn().mockReturnThis();
+        const limit = vi.fn().mockReturnThis();
+        const subscribe = vi.fn().mockResolvedValue(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue({ cursor: 'not-a-number', eventType: 'PUT', free });
+              controller.close();
+            },
+          }),
+        );
+
+        mockState.eventStreamForUser.mockReturnValue({ path, reverse, limit, subscribe });
+
+        const cursor = await HomeserverService.fetchUserEventsCursor({ userZ32: 'user-pubky' });
+
+        expect(cursor).toBe(0);
+        expect(free).toHaveBeenCalledTimes(1);
+      });
+
+      it('rejects with a server AppError when the SDK fails to open the stream', async () => {
+        mockState.eventStreamForUser.mockRejectedValue(new Error('wasm boom'));
+
+        await expect(HomeserverService.fetchUserEventsCursor({ userZ32: 'user-pubky' })).rejects.toMatchObject({
+          category: ErrorCategory.Server,
+        });
+      });
+    });
+
+    describe('write notifications', () => {
+      let unsubscribe: () => void;
+      let onWrite: Mock<() => void>;
+
+      beforeEach(async () => {
+        // The suite resets modules before each test, so subscribe to the same
+        // notifier instance the freshly imported HomeserverService captured.
+        const { onHomeserverWrite } = await import('@/libs/homeserver-write/homeserver-write');
+        onWrite = vi.fn();
+        unsubscribe = onHomeserverWrite(onWrite);
+        mockState.currentSession = createMockSession();
+      });
+
+      afterEach(() => {
+        unsubscribe();
+      });
+
+      it('should notify after a successful PUT', async () => {
+        await HomeserverService.request({
+          method: HttpMethod.PUT,
+          url: 'pubky://user/pub/data.json',
+          bodyJson: { ok: true },
+        });
+
+        expect(onWrite).toHaveBeenCalledTimes(1);
+      });
+
+      it('should notify after a successful DELETE', async () => {
+        await HomeserverService.request({ method: HttpMethod.DELETE, url: 'pubky://user/pub/data.json' });
+
+        expect(onWrite).toHaveBeenCalledTimes(1);
+      });
+
+      it('should notify after a successful blob upload', async () => {
+        await HomeserverService.putBlob({ url: 'pubky://user/pub/avatar.png', blob: new Uint8Array([1, 2, 3]) });
+
+        expect(onWrite).toHaveBeenCalledTimes(1);
+      });
+
+      it('should not notify for reads', async () => {
+        mockState.sessionStorageGet.mockResolvedValue(new Response('{}', { status: 200 }));
+
+        await HomeserverService.request({ method: HttpMethod.GET, url: 'pubky://user/pub/data.json' });
+
+        expect(onWrite).not.toHaveBeenCalled();
+      });
+
+      it('should not notify when the write fails', async () => {
+        mockState.sessionStoragePutJson.mockRejectedValue(new Error('homeserver down'));
+
+        await expect(
+          HomeserverService.request({
+            method: HttpMethod.PUT,
+            url: 'pubky://user/pub/data.json',
+            bodyJson: { ok: true },
+          }),
+        ).rejects.toThrow();
+
+        expect(onWrite).not.toHaveBeenCalled();
       });
     });
 

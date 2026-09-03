@@ -26,6 +26,10 @@ export const userApi = {
     const userId = encodePathSegment(params.user_id);
     return buildNexusUrl(`${PREFIX}/${userId}/counts`);
   },
+  cursor: (params: TUserId) => {
+    const userId = encodePathSegment(params.user_id);
+    return buildNexusUrl(`${PREFIX}/${userId}/cursor`);
+  },
   details: (params: TUserId) => {
     const userId = encodePathSegment(params.user_id);
     return buildNexusUrl(`${PREFIX}/${userId}/details`);

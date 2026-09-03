@@ -3,10 +3,11 @@ import type {
   NexusTag,
   NexusTaggers,
   NexusUserCounts,
+  NexusUserCursor,
   NexusUserDetails,
   TUserId,
 } from '@/services/nexus/nexus.types';
-import { queryNexus } from '@/services/nexus/nexus.utils';
+import { fetchNexus, queryNexus } from '@/services/nexus/nexus.utils';
 import { userApi } from '@/services/nexus/user/user.api';
 import type { TUserPaginationParams, TUserTaggersParams, TUserTagsParams } from '@/services/nexus/user/user.types';
 
@@ -69,5 +70,21 @@ export class NexusUserService {
   static async counts(params: TUserId): Promise<NexusUserCounts> {
     const url = userApi.counts(params);
     return await queryNexus<NexusUserCounts>({ url });
+  }
+
+  /**
+   * Retrieves the last homeserver event cursor processed by Nexus for a user
+   *
+   * Uses a raw fetch (no TanStack Query cache/retry) because this endpoint
+   * is polled by the sync-status coordinator: the query client's staleTime
+   * would risk serving stale cursors and its 404 retry policy would delay
+   * the polling loop for users Nexus has not indexed yet.
+   *
+   * @param params - Parameters containing user ID
+   * @returns Cursor information for the user
+   */
+  static async cursor(params: TUserId): Promise<NexusUserCursor> {
+    const url = userApi.cursor(params);
+    return await fetchNexus<NexusUserCursor>({ url });
   }
 }
