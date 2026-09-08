@@ -13,6 +13,18 @@ export const createSyncStatusActions = (set: ZustandSet<SyncStatusStore>): SyncS
     set(state, false, SyncStatusActionTypes.SET_SYNC_STATE);
   },
 
+  recordCheckFailure: (failedAt: number) => {
+    set(
+      (state) => ({ consecutiveFailures: state.consecutiveFailures + 1, lastFailureAt: failedAt }),
+      false,
+      SyncStatusActionTypes.RECORD_CHECK_FAILURE,
+    );
+  },
+
+  markPendingWrite: (writtenAt: number) => {
+    set({ pendingWriteSince: writtenAt }, false, SyncStatusActionTypes.MARK_PENDING_WRITE);
+  },
+
   reset: () => {
     set(syncStatusInitialState, false, SyncStatusActionTypes.RESET);
   },

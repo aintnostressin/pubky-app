@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SYNC_STATUS_FAILED_CHECK_THRESHOLD } from '@/config/sync-status';
 import { SyncStatusController } from '@/controllers/sync-status/sync-status';
 import type { PollingServiceConfig } from '@/coordinators/base/coordinators.types';
 import { SyncStatusCoordinator } from '@/coordinators/sync-status/sync-status';
@@ -6,6 +7,7 @@ import type { SyncStatusCoordinatorConfig } from '@/coordinators/sync-status/syn
 import { notifyHomeserverWrite } from '@/libs/homeserver-write/homeserver-write';
 import { useAuthStore } from '@/stores/auth/auth.store';
 import { useSyncStatusStore } from '@/stores/syncStatus/syncStatus.store';
+import { SyncStatus } from '@/stores/syncStatus/syncStatus.types';
 import { mockSession } from '@/test-utils/pubky';
 
 vi.mock('@/controllers/sync-status/sync-status', () => ({
@@ -180,7 +182,11 @@ describe('SyncStatusCoordinator', () => {
           homeserverCursor: 5,
           nexusCursor: 5,
           mismatchSince: null,
+          mismatchPeakGap: null,
+          pendingWriteSince: null,
           lastCheckedAt: Date.now(),
+          consecutiveFailures: 0,
+          lastFailureAt: null,
         });
       });
     }
@@ -266,6 +272,53 @@ describe('SyncStatusCoordinator', () => {
       SyncStatusCoordinator.resetInstance();
       notifyHomeserverWrite();
       await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(mockFetchSyncStatus).not.toHaveBeenCalled();
+    });
+  });
+  describe('failed checks', () => {
+    it('records a failure in the store when a poll rejects', async () => {
+      const { coordinator } = setupAuthenticatedTest();
+      mockFetchSyncStatus.mockRejectedValue(new Error('nexus unreachable'));
+      coordinator.configure({ pollOnStart: true, intervalMs: 30_000 } as Partial<CoordinatorConfigWithBase>);
+
+      await coordinator.start();
+      await flushPromises();
+
+      expect(useSyncStatusStore.getState().consecutiveFailures).toBeGreaterThan(0);
+    });
+
+    it('reports CHECK_FAILING once consecutive polls keep failing', async () => {
+      const { coordinator } = setupAuthenticatedTest();
+      mockFetchSyncStatus.mockRejectedValue(new Error('nexus unreachable'));
+      coordinator.configure({ pollOnStart: true, intervalMs: 30_000 } as Partial<CoordinatorConfigWithBase>);
+
+      await coordinator.start();
+      for (let attempt = 0; attempt < SYNC_STATUS_FAILED_CHECK_THRESHOLD; attempt++) {
+        await vi.advanceTimersByTimeAsync(30_000);
+      }
+
+      expect(useSyncStatusStore.getState().selectSyncStatus()).toBe(SyncStatus.CHECK_FAILING);
+    });
+  });
+
+  describe('refreshNow', () => {
+    it('runs a check immediately, outside the polling cadence', async () => {
+      const { coordinator } = setupAuthenticatedTest();
+      coordinator.configure({ pollOnStart: false, intervalMs: 30_000 } as Partial<CoordinatorConfigWithBase>);
+      await coordinator.start();
+      mockFetchSyncStatus.mockClear();
+
+      await coordinator.refreshNow();
+
+      expect(mockFetchSyncStatus).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when polling is not allowed', async () => {
+      const coordinator = SyncStatusCoordinator.getInstance();
+      useAuthStore.getState().reset();
+
+      await coordinator.refreshNow();
 
       expect(mockFetchSyncStatus).not.toHaveBeenCalled();
     });

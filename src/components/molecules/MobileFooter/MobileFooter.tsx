@@ -19,7 +19,7 @@ import { AvatarWithFallback } from '@/organisms/AvatarWithFallback/AvatarWithFal
 import { useAuthStore } from '@/stores/auth/auth.store';
 import { useLocalFilesStore } from '@/stores/localFiles/localFiles.store';
 import { useNotificationStore } from '@/stores/notification/notification.store';
-import { SyncStatusIndicator } from '../SyncStatusIndicator/SyncStatusIndicator';
+import { SyncStatusAvatar } from '../SyncStatusIndicator/SyncStatusAvatar';
 
 export interface MobileFooterProps {
   className?: string;
@@ -151,37 +151,38 @@ export function MobileFooter({ className }: MobileFooterProps) {
           );
         })}
         {isAuthenticated ? (
-          <Link
-            data-cy="footer-nav-profile-btn"
-            href={APP_ROUTES.PROFILE}
-            aria-label={'Profile'}
-            className="relative shrink-0 rounded-full"
-          >
-            <AvatarWithFallback
-              avatarUrl={avatarUrl}
-              name={avatarName}
-              fallbackSeed={currentUserPubky || avatarName}
-              size="lg"
-              className="cursor-pointer"
-              alt={'Profile'}
-            />
-            <SyncStatusIndicator variant="dot" className="absolute -top-0.5 -right-0.5" />
-            {unreadNotifications > 0 && (
-              <Badge
-                data-testid="mobile-notification-counter"
-                data-cy="mobile-notification-counter"
-                className="absolute right-0 bottom-0 h-5 w-5 rounded-full bg-brand shadow-sm"
-                variant="secondary"
-              >
-                <Typography
-                  className={cn('font-semibold text-primary-foreground', unreadNotifications > 21 && 'text-xs')}
-                  size="xs"
+          <SyncStatusAvatar detailsSurface="sheet">
+            <Link
+              data-cy="footer-nav-profile-btn"
+              href={APP_ROUTES.PROFILE}
+              aria-label={'Profile'}
+              className="relative block shrink-0 rounded-full"
+            >
+              <AvatarWithFallback
+                avatarUrl={avatarUrl}
+                name={avatarName}
+                fallbackSeed={currentUserPubky || avatarName}
+                size="lg"
+                className="cursor-pointer"
+                alt={'Profile'}
+              />
+              {unreadNotifications > 0 && (
+                <Badge
+                  data-testid="mobile-notification-counter"
+                  data-cy="mobile-notification-counter"
+                  className="absolute right-0 bottom-0 h-5 w-5 rounded-full bg-brand shadow-sm"
+                  variant="secondary"
                 >
-                  {unreadNotifications > 21 ? '21+' : unreadNotifications}
-                </Typography>
-              </Badge>
-            )}
-          </Link>
+                  <Typography
+                    className={cn('font-semibold text-primary-foreground', unreadNotifications > 21 && 'text-xs')}
+                    size="xs"
+                  >
+                    {unreadNotifications > 21 ? '21+' : unreadNotifications}
+                  </Typography>
+                </Badge>
+              )}
+            </Link>
+          </SyncStatusAvatar>
         ) : (
           <Button
             variant="secondary"

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SYNC_STATUS_MISMATCH_TOLERANCE_MS } from '@/config/sync-status';
+import { SYNC_STATUS_FAILED_CHECK_THRESHOLD, SYNC_STATUS_MISMATCH_TOLERANCE_MS } from '@/config/sync-status';
 import type { Pubky } from '@/models/models.types';
 import { useSyncStatusStore } from './syncStatus.store';
 import { SyncStatus, type SyncStatusState } from './syncStatus.types';
@@ -11,7 +11,11 @@ const createSyncState = (overrides: Partial<SyncStatusState> = {}): SyncStatusSt
   homeserverCursor: 100,
   nexusCursor: 100,
   mismatchSince: null,
+  mismatchPeakGap: null,
+  pendingWriteSince: null,
   lastCheckedAt: 1_700_000_000_000,
+  consecutiveFailures: 0,
+  lastFailureAt: null,
   ...overrides,
 });
 
@@ -116,6 +120,79 @@ describe('SyncStatusStore', () => {
 
         expect(useSyncStatusStore.getState().selectSyncStatus()).toBe(SyncStatus.OUT_OF_SYNC_STALE);
       });
+    });
+  });
+
+  describe('recordCheckFailure', () => {
+    it('should count consecutive failures without touching the cursors', () => {
+      useSyncStatusStore.getState().setSyncState(createSyncState());
+
+      useSyncStatusStore.getState().recordCheckFailure(1_700_000_005_000);
+
+      const state = useSyncStatusStore.getState();
+      expect(state.consecutiveFailures).toBe(1);
+      expect(state.lastFailureAt).toBe(1_700_000_005_000);
+      expect(state.homeserverCursor).toBe(100);
+      expect(state.nexusCursor).toBe(100);
+    });
+
+    it('should derive CHECK_FAILING once the failure threshold is reached', () => {
+      useSyncStatusStore.getState().setSyncState(createSyncState());
+
+      for (let attempt = 0; attempt < SYNC_STATUS_FAILED_CHECK_THRESHOLD; attempt++) {
+        useSyncStatusStore.getState().recordCheckFailure(Date.now());
+      }
+
+      // Cursors still say "synced": an unreachable Nexus must not read as a
+      // healthy one just because the last successful check was in sync.
+      expect(useSyncStatusStore.getState().selectSyncStatus()).toBe(SyncStatus.CHECK_FAILING);
+    });
+
+    it('should stay on the cursor-derived status below the threshold', () => {
+      useSyncStatusStore.getState().setSyncState(createSyncState());
+
+      useSyncStatusStore.getState().recordCheckFailure(Date.now());
+
+      expect(useSyncStatusStore.getState().selectSyncStatus()).toBe(SyncStatus.SYNCED);
+    });
+
+    it('should clear the failure streak once a check completes again', () => {
+      useSyncStatusStore.getState().setSyncState(createSyncState());
+      useSyncStatusStore.getState().recordCheckFailure(Date.now());
+      useSyncStatusStore.getState().recordCheckFailure(Date.now());
+
+      useSyncStatusStore.getState().setSyncState(createSyncState());
+
+      expect(useSyncStatusStore.getState().consecutiveFailures).toBe(0);
+      expect(useSyncStatusStore.getState().lastFailureAt).toBeNull();
+      expect(useSyncStatusStore.getState().selectSyncStatus()).toBe(SyncStatus.SYNCED);
+    });
+  });
+
+  describe('markPendingWrite', () => {
+    it('should report OUT_OF_SYNC straight after a write, before any poll', () => {
+      // Cursors still say synced: the write has not been polled for yet.
+      useSyncStatusStore.getState().setSyncState(createSyncState());
+
+      useSyncStatusStore.getState().markPendingWrite(Date.now());
+
+      expect(useSyncStatusStore.getState().selectSyncStatus()).toBe(SyncStatus.OUT_OF_SYNC);
+    });
+
+    it('should age an unconfirmed write into OUT_OF_SYNC_STALE like a cursor mismatch', () => {
+      useSyncStatusStore.getState().setSyncState(createSyncState());
+
+      useSyncStatusStore.getState().markPendingWrite(Date.now() - SYNC_STATUS_MISMATCH_TOLERANCE_MS - 1_000);
+
+      expect(useSyncStatusStore.getState().selectSyncStatus()).toBe(SyncStatus.OUT_OF_SYNC_STALE);
+    });
+
+    it('should be cleared by a reset', () => {
+      useSyncStatusStore.getState().markPendingWrite(Date.now());
+
+      useSyncStatusStore.getState().reset();
+
+      expect(useSyncStatusStore.getState().pendingWriteSince).toBeNull();
     });
   });
 

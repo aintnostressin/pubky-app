@@ -79,6 +79,19 @@ export class SyncStatusCoordinator extends Coordinator<SyncStatusCoordinatorConf
   }
 
   /**
+   * Run one check immediately, outside the polling cadence. Used by the
+   * indicator's "Check now" action so a user staring at a stale or failing
+   * status does not have to wait out the interval.
+   */
+  public async refreshNow(): Promise<void> {
+    if (!this.shouldPoll()) {
+      return;
+    }
+
+    await this.poll();
+  }
+
+  /**
    * Reset the singleton instance (useful for testing)
    */
   public static resetInstance(): void {
@@ -104,7 +117,9 @@ export class SyncStatusCoordinator extends Coordinator<SyncStatusCoordinatorConf
     try {
       await SyncStatusController.fetchSyncStatus({ userPubky });
     } catch (error) {
-      // Keep the previous store state on failure; the next poll retries.
+      // Keep the previous cursors, but record the failure: without this a
+      // Nexus we cannot reach looks exactly like a Nexus we are in sync with.
+      useSyncStatusStore.getState().recordCheckFailure(Date.now());
       Logger.error('Error polling sync status', { error });
     }
   }
@@ -158,7 +173,11 @@ export class SyncStatusCoordinator extends Coordinator<SyncStatusCoordinatorConf
       return;
     }
 
-    this.activePollUntil = Date.now() + SYNC_STATUS_ACTIVE_POLL_WINDOW_MS;
+    const now = Date.now();
+    // Show "syncing" on this tick rather than after the first poll returns:
+    // the user's own write is proof that Nexus is behind.
+    useSyncStatusStore.getState().markPendingWrite(now);
+    this.activePollUntil = now + SYNC_STATUS_ACTIVE_POLL_WINDOW_MS;
     this.scheduleActivePoll(0);
   }
 

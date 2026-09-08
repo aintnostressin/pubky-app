@@ -32,7 +32,7 @@ exports[`MobileFooter - Snapshots > matches snapshot for navigation links 1`] = 
 exports[`MobileFooter - Snapshots > matches snapshot for profile link 1`] = `
 <a
   aria-label="Profile"
-  class="relative shrink-0 rounded-full"
+  class="relative block shrink-0 rounded-full"
   data-cy="footer-nav-profile-btn"
   href="/profile"
 >
@@ -201,29 +201,39 @@ exports[`MobileFooter - Snapshots > matches snapshot with custom className 1`] =
         />
       </svg>
     </a>
-    <a
-      aria-label="Profile"
-      class="relative shrink-0 rounded-full"
-      data-cy="footer-nav-profile-btn"
-      href="/profile"
+    <span
+      class="relative inline-flex shrink-0"
+      data-testid="sync-status-avatar"
     >
-      <div
-        class="cursor-pointer"
-        data-size="lg"
-        data-testid="avatar-with-fallback"
+      <a
+        aria-label="Profile"
+        class="relative block shrink-0 rounded-full"
+        data-cy="footer-nav-profile-btn"
+        href="/profile"
       >
-        <span
-          data-testid="avatar-fallback"
+        <div
+          class="cursor-pointer"
+          data-size="lg"
+          data-testid="avatar-with-fallback"
         >
-          TU
-        </span>
-        <span
-          data-testid="avatar-name"
-        >
-          Test User
-        </span>
-      </div>
-    </a>
+          <span
+            data-testid="avatar-fallback"
+          >
+            TU
+          </span>
+          <span
+            data-testid="avatar-name"
+          >
+            Test User
+          </span>
+        </div>
+      </a>
+      <span
+        aria-live="polite"
+        class="sr-only"
+        role="status"
+      />
+    </span>
   </div>
 </div>
 `;
@@ -374,29 +384,39 @@ exports[`MobileFooter - Snapshots > matches snapshot with default props 1`] = `
         />
       </svg>
     </a>
-    <a
-      aria-label="Profile"
-      class="relative shrink-0 rounded-full"
-      data-cy="footer-nav-profile-btn"
-      href="/profile"
+    <span
+      class="relative inline-flex shrink-0"
+      data-testid="sync-status-avatar"
     >
-      <div
-        class="cursor-pointer"
-        data-size="lg"
-        data-testid="avatar-with-fallback"
+      <a
+        aria-label="Profile"
+        class="relative block shrink-0 rounded-full"
+        data-cy="footer-nav-profile-btn"
+        href="/profile"
       >
-        <span
-          data-testid="avatar-fallback"
+        <div
+          class="cursor-pointer"
+          data-size="lg"
+          data-testid="avatar-with-fallback"
         >
-          TU
-        </span>
-        <span
-          data-testid="avatar-name"
-        >
-          Test User
-        </span>
-      </div>
-    </a>
+          <span
+            data-testid="avatar-fallback"
+          >
+            TU
+          </span>
+          <span
+            data-testid="avatar-name"
+          >
+            Test User
+          </span>
+        </div>
+      </a>
+      <span
+        aria-live="polite"
+        class="sr-only"
+        role="status"
+      />
+    </span>
   </div>
 </div>
 `;
@@ -547,29 +567,39 @@ exports[`MobileFooter - Snapshots > matches snapshot with different active path 
         />
       </svg>
     </a>
-    <a
-      aria-label="Profile"
-      class="relative shrink-0 rounded-full"
-      data-cy="footer-nav-profile-btn"
-      href="/profile"
+    <span
+      class="relative inline-flex shrink-0"
+      data-testid="sync-status-avatar"
     >
-      <div
-        class="cursor-pointer"
-        data-size="lg"
-        data-testid="avatar-with-fallback"
+      <a
+        aria-label="Profile"
+        class="relative block shrink-0 rounded-full"
+        data-cy="footer-nav-profile-btn"
+        href="/profile"
       >
-        <span
-          data-testid="avatar-fallback"
+        <div
+          class="cursor-pointer"
+          data-size="lg"
+          data-testid="avatar-with-fallback"
         >
-          TU
-        </span>
-        <span
-          data-testid="avatar-name"
-        >
-          Test User
-        </span>
-      </div>
-    </a>
+          <span
+            data-testid="avatar-fallback"
+          >
+            TU
+          </span>
+          <span
+            data-testid="avatar-name"
+          >
+            Test User
+          </span>
+        </div>
+      </a>
+      <span
+        aria-live="polite"
+        class="sr-only"
+        role="status"
+      />
+    </span>
   </div>
 </div>
 `;

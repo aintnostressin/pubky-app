@@ -18,8 +18,25 @@ export interface SyncStatusState {
   nexusCursor: number | null;
   /** Timestamp when the current mismatch was first observed (null when in sync) */
   mismatchSince: number | null;
+  /**
+   * Largest cursor gap seen during the current mismatch, so the indicator can
+   * show how much of it has been closed rather than an indeterminate spinner.
+   * Null when in sync.
+   */
+  mismatchPeakGap: number | null;
   /** Timestamp of the last completed cursor comparison */
   lastCheckedAt: number | null;
+  /**
+   * When the user last wrote to their homeserver. Nexus is behind from that
+   * instant by definition, so the indicator shows it without waiting for a
+   * poll to prove it. Cleared by the first check that started after the write
+   * and came back synced.
+   */
+  pendingWriteSince: number | null;
+  /** Consecutive failed checks since the last completed comparison */
+  consecutiveFailures: number;
+  /** Timestamp of the most recent failed check (null when the last check succeeded) */
+  lastFailureAt: number | null;
 }
 
 /** Display status derived from the raw cursor snapshot */
@@ -30,12 +47,23 @@ export enum SyncStatus {
   SYNCED = 'synced',
   /** Nexus is behind but the mismatch is recent (yellow "Syncing" chip) */
   OUT_OF_SYNC = 'out-of-sync',
-  /** Nexus has been behind longer than the mismatch tolerance (red "Not syncing" chip) */
+  /** Nexus has been behind longer than the mismatch tolerance (orange "Sync delayed" chip) */
   OUT_OF_SYNC_STALE = 'out-of-sync-stale',
+  /**
+   * The checks themselves are failing, so the cursor comparison is unknown
+   * rather than merely behind (red "Can't reach Nexus" chip). Takes precedence
+   * over the cursor-derived states: a silent failure used to look identical to
+   * a healthy sync.
+   */
+  CHECK_FAILING = 'check-failing',
 }
 
 export interface SyncStatusActions {
   setSyncState: (state: SyncStatusState) => void;
+  /** Record a check that never completed, so the UI can distinguish down from synced */
+  recordCheckFailure: (failedAt: number) => void;
+  /** The user just wrote to their homeserver: show "syncing" straight away */
+  markPendingWrite: (writtenAt: number) => void;
   reset: () => void;
 }
 
@@ -50,11 +78,17 @@ export const syncStatusInitialState: SyncStatusState = {
   homeserverCursor: null,
   nexusCursor: null,
   mismatchSince: null,
+  mismatchPeakGap: null,
+  pendingWriteSince: null,
   lastCheckedAt: null,
+  consecutiveFailures: 0,
+  lastFailureAt: null,
 };
 
 export enum SyncStatusActionTypes {
   INIT = 'INIT',
   SET_SYNC_STATE = 'SET_SYNC_STATE',
+  RECORD_CHECK_FAILURE = 'RECORD_CHECK_FAILURE',
+  MARK_PENDING_WRITE = 'MARK_PENDING_WRITE',
   RESET = 'RESET',
 }

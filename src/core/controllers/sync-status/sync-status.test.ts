@@ -97,4 +97,35 @@ describe('SyncStatusController', () => {
       expect(useSyncStatusStore.getState().userPubky).toBeNull();
     });
   });
+  describe('pending writes', () => {
+    it('clears a pending write once a later check reports Nexus caught up', async () => {
+      mockFetchCursorSnapshot.mockResolvedValue({ homeserverCursor: 10, nexusCursor: 10 });
+      useSyncStatusStore.getState().markPendingWrite(NOW - 1_000);
+
+      await SyncStatusController.fetchSyncStatus({ userPubky: userAPubky });
+
+      expect(useSyncStatusStore.getState().pendingWriteSince).toBeNull();
+    });
+
+    it('keeps a pending write when Nexus is still behind', async () => {
+      mockFetchCursorSnapshot.mockResolvedValue({ homeserverCursor: 12, nexusCursor: 10 });
+      const writtenAt = NOW - 1_000;
+      useSyncStatusStore.getState().markPendingWrite(writtenAt);
+
+      await SyncStatusController.fetchSyncStatus({ userPubky: userAPubky });
+
+      expect(useSyncStatusStore.getState().pendingWriteSince).toBe(writtenAt);
+    });
+
+    it('does not let a check that was already in flight clear the write', async () => {
+      // The snapshot resolves after the write, but the request left before it.
+      mockFetchCursorSnapshot.mockResolvedValue({ homeserverCursor: 10, nexusCursor: 10 });
+      const writtenAt = NOW + 5_000;
+      useSyncStatusStore.getState().markPendingWrite(writtenAt);
+
+      await SyncStatusController.fetchSyncStatus({ userPubky: userAPubky });
+
+      expect(useSyncStatusStore.getState().pendingWriteSince).toBe(writtenAt);
+    });
+  });
 });

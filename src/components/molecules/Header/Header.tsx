@@ -20,6 +20,7 @@ import { AvatarWithFallback } from '@/organisms/AvatarWithFallback/AvatarWithFal
 import { SearchInput } from '@/organisms/SearchInput/SearchInput';
 import { useAuthStore } from '@/stores/auth/auth.store';
 import { ProgressSteps } from '../ProgressSteps/ProgressSteps';
+import { SyncStatusAvatar } from '../SyncStatusIndicator/SyncStatusAvatar';
 import { SyncStatusIndicator } from '../SyncStatusIndicator/SyncStatusIndicator';
 
 export interface HeaderContainerProps {
@@ -230,27 +231,29 @@ export function HeaderNavigationButtons({
         );
       })}
 
-      <Link data-cy="header-nav-profile-btn" className="relative" href={APP_ROUTES.PROFILE}>
-        <AvatarWithFallback
-          avatarUrl={avatarImage}
-          name={avatarName}
-          fallbackSeed={avatarSeed || avatarName}
-          size="lg"
-          className="cursor-pointer"
-          alt={'Profile'}
-        />
-        {counter > 0 && (
-          <Badge
-            data-cy="header-notification-counter"
-            className="absolute right-0 bottom-0 h-5 w-5 rounded-full bg-brand shadow-sm"
-            variant="secondary"
-          >
-            <Typography className={cn('font-semibold text-primary-foreground', counter > 21 && 'text-xs')} size="xs">
-              {counterString}
-            </Typography>
-          </Badge>
-        )}
-      </Link>
+      <SyncStatusAvatar detailsSurface="popover">
+        <Link data-cy="header-nav-profile-btn" className="relative block" href={APP_ROUTES.PROFILE}>
+          <AvatarWithFallback
+            avatarUrl={avatarImage}
+            name={avatarName}
+            fallbackSeed={avatarSeed || avatarName}
+            size="lg"
+            className="cursor-pointer"
+            alt={'Profile'}
+          />
+          {counter > 0 && (
+            <Badge
+              data-cy="header-notification-counter"
+              className="absolute right-0 bottom-0 h-5 w-5 rounded-full bg-brand shadow-sm"
+              variant="secondary"
+            >
+              <Typography className={cn('font-semibold text-primary-foreground', counter > 21 && 'text-xs')} size="xs">
+                {counterString}
+              </Typography>
+            </Badge>
+          )}
+        </Link>
+      </SyncStatusAvatar>
     </Container>
   );
 }
